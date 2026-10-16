@@ -1,0 +1,6 @@
+_build
+deps
+agents
+.git
+.expert
+test

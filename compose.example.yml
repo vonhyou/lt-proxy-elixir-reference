@@ -1,0 +1,14 @@
+services:
+  lt-proxy:
+    image: lt_proxy:latest
+    build: .
+    restart: unless-stopped
+    environment:
+      LTP_API_KEY: ${LTP_API_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      LTP_MODEL: anthropic/claude-haiku-5.5
+    networks: [sharkey_internal]
+
+networks:
+  sharkey_internal:
+    external: true

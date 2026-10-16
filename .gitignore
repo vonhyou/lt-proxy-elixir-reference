@@ -1,0 +1,12 @@
+/_build/
+/deps/
+/cover/
+/doc/
+erl_crash.dump
+*.ez
+lt_proxy-*.tar
+/tmp/
+.expert/
+.elixir_ls/
+
+/agents/
