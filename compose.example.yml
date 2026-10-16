@@ -4,10 +4,19 @@ services:
     build: .
     restart: unless-stopped
     environment:
-      LTP_API_KEY: ${LTP_API_KEY}
+      LTP_API_KEYS: ${LTP_API_KEYS}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      LTP_MODEL: anthropic/claude-haiku-5.5
+      LTP_ADMIN_PASSWORD: ${LTP_ADMIN_PASSWORD}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      LTP_ADMIN_BIND: 0.0.0.0
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - lt-proxy-data:/app/data
     networks: [sharkey_internal]
+
+volumes:
+  lt-proxy-data:
 
 networks:
   sharkey_internal:

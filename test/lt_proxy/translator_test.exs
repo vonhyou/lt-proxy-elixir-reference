@@ -3,6 +3,8 @@ defmodule LtProxy.TranslatorTest do
 
   import ExUnit.CaptureLog
 
+  import LtProxy.UpstreamStub
+
   alias LtProxy.{Cache, Slots, Translator, Upstream}
   alias LtProxy.Translate.Request
 
@@ -111,6 +113,13 @@ defmodule LtProxy.TranslatorTest do
     assert {:ok, %{text: "Hello world"}} = Translator.translate(@request)
   end
 
+  test "frees the slot when the upstream request crashes" do
+    Req.Test.stub(Upstream, fn _conn -> raise "boom" end)
+
+    assert {:error, {:transport, :crashed}} = Translator.translate(@request)
+    assert Slots.in_use() == 0
+  end
+
   defp stub_reply(content, usage \\ %{}), do: Req.Test.stub(Upstream, &reply(&1, content, usage))
 
   defp stub_counting(content) do
@@ -120,12 +129,5 @@ defmodule LtProxy.TranslatorTest do
       send(test, :called)
       reply(conn, content)
     end)
-  end
-
-  defp reply(conn, content, usage \\ %{}) do
-    Req.Test.json(conn, %{
-      "choices" => [%{"message" => %{"content" => content}}],
-      "usage" => usage
-    })
   end
 end

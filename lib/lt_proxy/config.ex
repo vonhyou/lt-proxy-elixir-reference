@@ -1,6 +1,6 @@
 defmodule LtProxy.Config do
-  @moduledoc "Access to application settings, see `config/runtime.exs`."
+  @moduledoc "Access to application settings, see `LtProxy.Settings`."
 
   @spec fetch!(atom()) :: term()
-  def fetch!(key), do: Application.fetch_env!(:lt_proxy, key)
+  def fetch!(key), do: LtProxy.Settings.get(key)
 end

@@ -1,5 +1,5 @@
 defmodule LtProxy.RateLimit do
-  @moduledoc "Global requests-per-minute ceiling, enabled when `:rpm` is set."
+  @moduledoc "Counts requests per minute; rejects those over `:rpm` when it is set."
 
   use GenServer
 
@@ -13,17 +13,20 @@ defmodule LtProxy.RateLimit do
 
   @spec check(integer()) :: :ok | {:error, :rate_limited}
   def check(now_ms \\ System.system_time(:millisecond)) do
-    case Config.fetch!(:rpm) do
-      nil ->
-        :ok
+    minute = div(now_ms, @minute)
+    @table |> :ets.update_counter(minute, 1, {minute, 0}) |> decide(Config.fetch!(:rpm))
+  end
 
-      limit ->
-        minute = div(now_ms, @minute)
-        @table |> :ets.update_counter(minute, 1, {minute, 0}) |> decide(limit)
+  @spec current_count(integer()) :: non_neg_integer()
+  def current_count(now_ms \\ System.system_time(:millisecond)) do
+    case :ets.lookup(@table, div(now_ms, @minute)) do
+      [{_minute, count}] -> count
+      [] -> 0
     end
   end
 
-  @spec decide(non_neg_integer(), pos_integer()) :: :ok | {:error, :rate_limited}
+  @spec decide(non_neg_integer(), pos_integer() | nil) :: :ok | {:error, :rate_limited}
+  def decide(_count, nil), do: :ok
   def decide(count, limit) when count <= limit, do: :ok
   def decide(_count, _limit), do: {:error, :rate_limited}
 

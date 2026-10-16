@@ -9,4 +9,9 @@ lt_proxy-*.tar
 .expert/
 .elixir_ls/
 
+/priv/static/assets/
+/priv/static/cache_manifest.json
+/data/
+
 /agents/
+/.claude/

@@ -1,7 +1,7 @@
 defmodule LtProxy.Cache do
   @moduledoc """
   Translation cache. Concurrent fetches of the same key share one loader call;
-  errors are never cached.
+  errors are never cached. Each entry expires after the `:cache_ttl_ms` current at commit.
   """
 
   import Cachex.Spec
@@ -13,16 +13,9 @@ defmodule LtProxy.Cache do
 
   @spec child_spec(keyword()) :: Supervisor.child_spec()
   def child_spec(opts) do
-    ttl = Keyword.fetch!(opts, :ttl)
     limit = Keyword.fetch!(opts, :limit)
-
-    Supervisor.child_spec(
-      {Cachex,
-       name: @name,
-       expiration: expiration(default: ttl),
-       hooks: [hook(module: Cachex.Limit.Scheduled, args: {limit, [], []})]},
-      id: __MODULE__
-    )
+    hooks = [hook(module: Cachex.Limit.Scheduled, args: {limit, [], []})]
+    Supervisor.child_spec({Cachex, name: @name, hooks: hooks}, id: __MODULE__)
   end
 
   @spec key(Request.t()) :: binary()
@@ -40,7 +33,7 @@ defmodule LtProxy.Cache do
     result =
       Cachex.fetch(@name, key, fn _key ->
         case loader.() do
-          {:ok, value} -> {:commit, value}
+          {:ok, value} -> {:commit, value, expire: Config.fetch!(:cache_ttl_ms)}
           error -> {:ignore, error}
         end
       end)
@@ -51,6 +44,12 @@ defmodule LtProxy.Cache do
       {:ignore, error} -> error
       {:error, _reason} = error -> error
     end
+  end
+
+  @spec size() :: non_neg_integer()
+  def size do
+    {:ok, size} = Cachex.size(@name)
+    size
   end
 
   @spec clear() :: :ok

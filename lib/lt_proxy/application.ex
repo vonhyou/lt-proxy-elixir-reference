@@ -7,16 +7,33 @@ defmodule LtProxy.Application do
 
   @impl Application
   def start(_type, _args) do
-    LtProxy.Slots.init(Config.fetch!(:max_concurrency))
+    LtProxy.ApiKeys.load!()
 
-    children =
+    base = [
+      {Phoenix.PubSub, name: LtProxy.PubSub},
+      {Task.Supervisor, name: LtProxy.TaskSupervisor},
+      LtProxy.Settings
+    ]
+
+    with {:ok, sup} <-
+           Supervisor.start_link(base, strategy: :one_for_one, name: LtProxy.Supervisor) do
+      # Started after Settings so they read published values (including settings.json).
+      for child <- children(), do: {:ok, _pid} = Supervisor.start_child(sup, child)
+      {:ok, sup}
+    end
+  end
+
+  defp children do
+    line_length = 3 * Config.fetch!(:max_body_bytes) + 1024
+
+    Enum.filter(
       [
-        {LtProxy.Cache, ttl: Config.fetch!(:cache_ttl_ms), limit: Config.fetch!(:cache_limit)},
-        Config.fetch!(:rpm) && LtProxy.RateLimit,
-        Config.fetch!(:server) && {Bandit, plug: LtProxy.Web.Router, port: Config.fetch!(:port)}
-      ]
-      |> Enum.filter(& &1)
-
-    Supervisor.start_link(children, strategy: :one_for_one, name: LtProxy.Supervisor)
+        {LtProxy.Cache, limit: Config.fetch!(:cache_limit)},
+        LtProxy.RateLimit,
+        {LtProxyWeb.ApiEndpoint, http: [http_1_options: [max_request_line_length: line_length]]},
+        LtProxyWeb.AdminEndpoint.enabled?() && LtProxyWeb.AdminEndpoint
+      ],
+      & &1
+    )
   end
 end

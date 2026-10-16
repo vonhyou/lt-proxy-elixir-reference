@@ -4,3 +4,5 @@ agents
 .git
 .expert
 test
+priv/static/assets
+priv/static/cache_manifest.json

@@ -1,0 +1,12 @@
+@import "tailwindcss" source(none);
+@source "../css";
+@source "../js";
+@source "../../lib/lt_proxy_web";
+
+@plugin "../vendor/heroicons";
+
+@plugin "daisyui/packages/bundle/daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+
+[data-phx-session], [data-phx-teleported-src] { display: contents }

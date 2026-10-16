@@ -20,18 +20,32 @@ defmodule LtProxy.Upstream do
         params
       )
 
-    case Req.post(client(), url: "/chat/completions", json: body) do
-      {:ok, %Req.Response{status: 200, body: %{"choices" => [choice | _]} = body}} ->
+    timeout = Config.fetch!(:upstream_timeout_ms)
+    req = client(timeout)
+
+    task =
+      Task.Supervisor.async_nolink(LtProxy.TaskSupervisor, fn ->
+        Req.post(req, url: "/chat/completions", json: body)
+      end)
+
+    case Task.yield(task, timeout + 500) || Task.shutdown(task, :brutal_kill) do
+      {:ok, {:ok, %Req.Response{status: 200, body: %{"choices" => [choice | _]} = body}}} ->
         content(choice, body["usage"])
 
-      {:ok, %Req.Response{status: 200}} ->
+      {:ok, {:ok, %Req.Response{status: 200}}} ->
         {:error, :empty_reply}
 
-      {:ok, %Req.Response{status: status}} ->
+      {:ok, {:ok, %Req.Response{status: status}}} ->
         {:error, {:upstream_status, status}}
 
-      {:error, exception} ->
+      {:ok, {:error, exception}} ->
         {:error, {:transport, Map.get(exception, :reason, exception)}}
+
+      {:exit, _reason} ->
+        {:error, {:transport, :crashed}}
+
+      nil ->
+        {:error, {:transport, :timeout}}
     end
   end
 
@@ -41,13 +55,19 @@ defmodule LtProxy.Upstream do
 
   defp content(_choice, _usage), do: {:error, :empty_reply}
 
-  defp client do
+  defp retry?(_request, %Req.TransportError{reason: reason}),
+    do: reason in [:closed, :econnrefused]
+
+  defp retry?(_request, _response_or_exception), do: false
+
+  defp client(timeout) do
     Req.new(
       base_url: "https://openrouter.ai/api/v1",
       auth: {:bearer, Config.fetch!(:openrouter_key)},
       headers: [x_title: "lt_proxy"],
-      receive_timeout: Config.fetch!(:upstream_timeout_ms),
-      retry: :transient,
+      receive_timeout: timeout,
+      retry: &retry?/2,
+      retry_delay: 100,
       max_retries: 1
     )
     |> Req.merge(Application.get_env(:lt_proxy, :req_options, []))
