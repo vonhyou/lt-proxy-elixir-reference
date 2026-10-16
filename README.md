@@ -21,56 +21,59 @@ Errors return `{"error": "..."}` with status 400 (bad params), 403 (bad key), 41
 
 ## Configuration
 
-API keys, at least 24 characters each; at least one is required in production:
-
 | Variable | Description |
 |---|---|
-| `LTP_API_KEYS` | Comma-separated `name:key` pairs |
-| `LTP_API_KEYS_FILE` | File with one `name:key` per line |
-| `LTP_API_KEY` | Legacy single key, named `default` |
 | `OPENROUTER_API_KEY` | OpenRouter API key (required) |
+| `LTP_API_KEYS` | Comma-separated `name:key` pairs, keys at least 24 characters (required in production) |
+| `LTP_ADMIN_PASSWORD` | Enables the admin panel; log in as `admin` |
+| `LTP_ADMIN_HOSTS` | Hostnames allowed for the panel, default `localhost,127.0.0.1` |
 
-Settings marked *editable* can be changed in the admin panel. Changes are saved to `$LTP_DATA_DIR/settings.json` and override the environment.
+See `.env.example`. Everything else has a sensible default; settings changed in the admin panel are saved to `settings.json` in the data directory and override the environment.
 
-| Variable | Default | Editable | Description |
+<details>
+<summary>Advanced</summary>
+
+| Variable | Default | Editable in panel | Description |
 |---|---|---|---|
 | `LTP_MODEL` | `anthropic/claude-haiku-5.5` | yes | OpenRouter model or `@preset/...` |
 | `LTP_ZDR` | `true` | yes | Route only to zero-data-retention providers |
 | `LTP_UPSTREAM_TIMEOUT_MS` | `15000` | yes | Upstream time budget per request |
 | `LTP_MAX_CONCURRENCY` | `4` | yes | Concurrent upstream calls; excess requests get 503 |
+| `LTP_RPM` | unset | yes | Global requests-per-minute limit |
 | `LTP_CACHE_TTL_HOURS` | `168` | yes | Translation cache lifetime |
 | `LTP_MAX_BODY_BYTES` | `100000` | yes | Request body limit; the URL length limit (3× this) applies after a restart |
-| `LTP_RPM` | unset | yes | Global requests-per-minute limit |
-| `LTP_PORT` | `5000` | | API port |
-| `LTP_BIND` | `0.0.0.0` | | API bind address |
 | `LTP_CACHE_LIMIT` | `10000` | | Maximum cached translations |
-| `LTP_DATA_DIR` | `data`, `/app/data` in the image | | Directory for `settings.json` |
+| `LTP_PORT` / `LTP_BIND` | `5000` / `0.0.0.0` | | API port and bind address |
+| `LTP_ADMIN_PORT` / `LTP_ADMIN_BIND` | `5001` / `127.0.0.1` (`0.0.0.0` in the image) | | Admin port and bind address |
+| `LTP_DATA_DIR` | `data` (`/app/data` in the image) | | Settings and generated secrets |
+| `SECRET_KEY_BASE` | generated in the data directory | | Signs admin sessions |
+
+</details>
 
 The proxy cache is separate from Sharkey's own translation cache, and clearing one does not clear the other.
 
 ## Admin panel
 
-The admin panel starts only when `LTP_ADMIN_PASSWORD` is set. Log in as `admin` with that password.
-
-| Variable | Default | Description |
-|---|---|---|
-| `LTP_ADMIN_PASSWORD` | unset | Admin password; enables the panel |
-| `SECRET_KEY_BASE` | | Required with the panel; generate with `openssl rand -base64 48` |
-| `LTP_ADMIN_PORT` | `5001` | Admin port |
-| `LTP_ADMIN_BIND` | `127.0.0.1` | Admin bind address |
-| `LTP_ADMIN_HOSTS` | `localhost,127.0.0.1` | Allowed `Host` values and WebSocket origins |
-
 Use a strong password: anything that can reach the admin port can try it. Keep the panel private. Reach it through an SSH tunnel (`ssh -L 5001:localhost:5001 host`) or a private network such as NetBird, adding the hostname you use to `LTP_ADMIN_HOSTS`. Behind a reverse proxy, enable WebSocket support.
 
 ## Running
 
+With Compose:
+
 ```console
-$ podman build -t lt_proxy .        # or docker
-$ podman run -p 5000:5000 -v lt-proxy-data:/app/data \
-    -e LTP_API_KEYS=sharkey:<key> -e OPENROUTER_API_KEY=sk-or-... lt_proxy
+$ cp .env.example .env               # fill in the keys
+$ docker compose -f compose.example.yml up -d
 ```
 
-See `compose.example.yml` for running next to Sharkey on its internal network, with the admin panel published on the host's loopback only.
+This publishes the API on port 5000 and the admin panel on the host's loopback only (`127.0.0.1:5001`).
+
+Images for `linux/amd64` and `linux/arm64` are published to `ghcr.io/vonhyou/lt-proxy-elixir-reference` on version tags, as Debian slim (`latest`, `x.y.z`) and Alpine (`latest-alpine`, `x.y.z-alpine`). To build locally, use `Dockerfile` or `Dockerfile.alpine`:
+
+```console
+$ podman build -t lt_proxy .        # or docker; add -f Dockerfile.alpine for Alpine
+$ podman run -p 5000:5000 -v lt-proxy-data:/app/data --env-file .env lt_proxy
+```
+
 A shell into the running release is available with `bin/lt_proxy remote`.
 
 ## Sharkey setup
@@ -90,5 +93,5 @@ Requires Elixir 1.20 and OTP 28+.
 ```console
 $ mix setup                                 # deps, asset tools, assets
 $ OPENROUTER_API_KEY=sk-or-... iex -S mix   # API keys are optional in dev
-$ mix check                                 # format, warnings, tests
+$ mix check                                 # format, warnings, tests (also run by CI on pull requests)
 ```

@@ -12,6 +12,7 @@ lt_proxy-*.tar
 /priv/static/assets/
 /priv/static/cache_manifest.json
 /data/
+/.env
 
 /agents/
 /.claude/

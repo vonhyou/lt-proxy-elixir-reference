@@ -11,13 +11,10 @@ defmodule LtProxy.ApiKeys do
           last_used_at: DateTime.t() | nil
         }
 
-  @doc "Loads keys from `LTP_API_KEYS`, `LTP_API_KEYS_FILE` and legacy `LTP_API_KEY`."
+  @doc "Loads keys from `LTP_API_KEYS` (`name:key,name:key`)."
   @spec load!() :: :ok
   def load! do
-    entries =
-      from_list(env("LTP_API_KEYS")) ++
-        from_file(env("LTP_API_KEYS_FILE")) ++
-        from_legacy(env("LTP_API_KEY"))
+    entries = from_list(env("LTP_API_KEYS"))
 
     validate!(entries)
     indexed = Enum.with_index(entries)
@@ -89,25 +86,6 @@ defmodule LtProxy.ApiKeys do
     |> Enum.map(fn {entry, i} -> parse!(entry, "LTP_API_KEYS entry #{i}") end)
   end
 
-  defp from_file(nil), do: []
-
-  defp from_file(path) do
-    case File.read(path) do
-      {:ok, contents} ->
-        contents
-        |> String.split(~r/\R/)
-        |> Enum.with_index(1)
-        |> Enum.reject(fn {line, _i} -> String.trim(line) == "" end)
-        |> Enum.map(fn {line, i} -> parse!(line, "LTP_API_KEYS_FILE line #{i}") end)
-
-      {:error, reason} ->
-        raise "cannot read LTP_API_KEYS_FILE #{path}: #{:file.format_error(reason)}"
-    end
-  end
-
-  defp from_legacy(nil), do: []
-  defp from_legacy(key), do: [{"default", key, "LTP_API_KEY"}]
-
   defp parse!(entry, src) do
     case String.split(entry, ":", parts: 2) |> Enum.map(&String.trim/1) do
       [name, key] when name != "" and key != "" -> {name, key, src}
@@ -117,7 +95,7 @@ defmodule LtProxy.ApiKeys do
 
   defp validate!([]) do
     if Application.get_env(:lt_proxy, :require_api_keys, true) do
-      raise "no API keys configured, set LTP_API_KEYS, LTP_API_KEYS_FILE or LTP_API_KEY"
+      raise "no API keys configured, set LTP_API_KEYS"
     end
   end
 

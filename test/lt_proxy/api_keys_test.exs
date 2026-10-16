@@ -3,7 +3,7 @@ defmodule LtProxy.ApiKeysTest do
 
   alias LtProxy.ApiKeys
 
-  @vars ~w(LTP_API_KEYS LTP_API_KEYS_FILE LTP_API_KEY)
+  @vars ~w(LTP_API_KEYS)
   @alice String.duplicate("a", 24)
   @bob String.duplicate("b", 23) <> "z"
 
@@ -28,25 +28,6 @@ defmodule LtProxy.ApiKeysTest do
     assert {:ok, "alice"} = ApiKeys.authenticate(@alice)
     assert {:ok, "bob"} = ApiKeys.authenticate(@bob)
     assert [%{name: "alice", last4: "aaaa"}, %{name: "bob", last4: "bbbz"}] = ApiKeys.list()
-  end
-
-  test "loads keys from LTP_API_KEYS_FILE" do
-    path = Path.join(System.tmp_dir!(), "ltp_api_keys_#{System.unique_integer([:positive])}")
-    File.write!(path, "alice:#{@alice}\n\nbob:#{@bob}\n")
-    on_exit(fn -> File.rm(path) end)
-    System.put_env("LTP_API_KEYS_FILE", path)
-    ApiKeys.load!()
-
-    assert {:ok, "alice"} = ApiKeys.authenticate(@alice)
-    assert {:ok, "bob"} = ApiKeys.authenticate(@bob)
-  end
-
-  test "treats LTP_API_KEY as the default key" do
-    System.put_env("LTP_API_KEY", @alice)
-    ApiKeys.load!()
-
-    assert {:ok, "default"} = ApiKeys.authenticate(@alice)
-    assert [%{name: "default"}] = ApiKeys.list()
   end
 
   test "rejects unknown and missing keys" do

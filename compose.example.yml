@@ -1,23 +1,15 @@
+# cp .env.example .env, fill it in, then: docker compose -f compose.example.yml up -d
 services:
   lt-proxy:
     image: lt_proxy:latest
     build: .
     restart: unless-stopped
-    environment:
-      LTP_API_KEYS: ${LTP_API_KEYS}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      LTP_ADMIN_PASSWORD: ${LTP_ADMIN_PASSWORD}
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-      LTP_ADMIN_BIND: 0.0.0.0
+    env_file: .env
     ports:
-      - "127.0.0.1:5001:5001"
+      - "5000:5000" # translation API
+      - "127.0.0.1:5001:5001" # admin panel, host loopback only
     volumes:
       - lt-proxy-data:/app/data
-    networks: [sharkey_internal]
 
 volumes:
   lt-proxy-data:
-
-networks:
-  sharkey_internal:
-    external: true

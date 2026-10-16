@@ -31,7 +31,8 @@ defmodule LtProxy.Application do
         {LtProxy.Cache, limit: Config.fetch!(:cache_limit)},
         LtProxy.RateLimit,
         {LtProxyWeb.ApiEndpoint, http: [http_1_options: [max_request_line_length: line_length]]},
-        LtProxyWeb.AdminEndpoint.enabled?() && LtProxyWeb.AdminEndpoint
+        LtProxyWeb.AdminEndpoint.enabled?() &&
+          {LtProxyWeb.AdminEndpoint, secret_key_base: LtProxyWeb.AdminEndpoint.secret_key_base()}
       ],
       & &1
     )

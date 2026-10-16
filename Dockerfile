@@ -33,7 +33,7 @@ RUN apt-get update \
  && useradd --system --home /app app \
  && mkdir -p /app/data && chown app /app/data
 
-ENV LANG=C.UTF-8
+ENV LANG=C.UTF-8 LTP_ADMIN_BIND=0.0.0.0
 WORKDIR /app
 COPY --from=build --chown=app /app/_build/prod/rel/lt_proxy ./
 USER app

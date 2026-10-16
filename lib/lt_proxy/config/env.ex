@@ -18,10 +18,13 @@ defmodule LtProxy.Config.Env do
     data_dir: {"LTP_DATA_DIR", :string}
   ]
 
-  @doc "Settings given by environment variables that are set."
+  @doc "Settings given by environment variables that are set and non-empty."
   @spec read() :: keyword()
   def read do
-    for {key, {var, type}} <- @vars, value = System.get_env(var), do: {key, parse(type, value)}
+    for {key, {var, type}} <- @vars,
+        value = System.get_env(var),
+        value not in [nil, ""],
+        do: {key, parse(type, value)}
   end
 
   @doc "Parses an IP address string, raising on invalid input."
