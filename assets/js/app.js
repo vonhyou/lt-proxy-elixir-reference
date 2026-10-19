@@ -9,3 +9,5 @@ const liveSocket = new LiveSocket("/live", Socket, {
 })
 
 liveSocket.connect()
+
+window.addEventListener("ltp:copy", (e) => navigator.clipboard?.writeText(e.target.value))

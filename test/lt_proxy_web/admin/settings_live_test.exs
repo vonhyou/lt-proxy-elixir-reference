@@ -20,9 +20,9 @@ defmodule LtProxyWeb.Admin.SettingsLiveTest do
     assert has_element?(view, "#settings-form input[type=checkbox][name='settings[zdr]']")
     assert has_element?(view, "#setting-max_concurrency .source")
     assert has_element?(view, "#setting-admin_hosts td", "localhost")
-    assert has_element?(view, "#setting-openrouter_key .badge", "secret")
-    assert has_element?(view, "#setting-openrouter_key td", "••••-key")
-    refute render(view) =~ "test-openrouter-key"
+    assert has_element?(view, "#setting-provider_key .badge", "secret")
+    assert has_element?(view, "#setting-provider_key td", "••••-key")
+    refute render(view) =~ "test-provider-key"
   end
 
   test "change validates live without saving", %{view: view, before: before} do

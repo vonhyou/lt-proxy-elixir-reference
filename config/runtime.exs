@@ -4,14 +4,29 @@ if config_env() != :test do
   alias LtProxy.Config.Env
 
   env = Env.read()
-  fetch = if config_env() == :prod, do: &System.fetch_env!/1, else: &System.get_env/1
-  secret_key_base = with "" <- System.get_env("SECRET_KEY_BASE"), do: nil
+  prod? = config_env() == :prod
+  blank = fn var -> with "" <- System.get_env(var), do: nil end
+  require! = fn var, value -> value || raise("#{var} is required") end
+
+  provider = LtProxy.Provider.fetch!(env[:provider] || "openrouter")
+  provider_key = blank.("LTP_PROVIDER_KEY")
+  if prod? and is_nil(provider_key), do: raise("LTP_PROVIDER_KEY is required")
+  provider_url = require!.("LTP_PROVIDER_URL", env[:provider_url] || provider.default_url())
+  model = require!.("LTP_MODEL", env[:model] || provider.default_model())
+  secret_key_base = blank.("SECRET_KEY_BASE")
+  admin_password = blank.("LTP_ADMIN_PASSWORD")
+
+  if admin_password && byte_size(admin_password) < 16,
+    do: raise("LTP_ADMIN_PASSWORD must be at least 16 characters")
 
   config :lt_proxy, [env_keys: Keyword.keys(env)] ++ env
 
   config :lt_proxy,
-    openrouter_key: fetch.("OPENROUTER_API_KEY"),
-    admin_password: System.get_env("LTP_ADMIN_PASSWORD")
+    provider: provider,
+    provider_key: provider_key,
+    provider_url: provider_url,
+    model: model,
+    admin_password: admin_password
 
   config :lt_proxy, LtProxyWeb.ApiEndpoint,
     http: [ip: Env.ip!(env[:bind] || "0.0.0.0"), port: env[:port] || 5000]

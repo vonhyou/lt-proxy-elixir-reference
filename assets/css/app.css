@@ -6,7 +6,77 @@
 @plugin "../vendor/heroicons";
 
 @plugin "daisyui/packages/bundle/daisyui" {
-  themes: light --default, dark --prefersdark;
+  themes: false;
+}
+
+@plugin "daisyui/packages/bundle/daisyui-theme" {
+  name: "light";
+  default: true;
+  color-scheme: light;
+  --color-base-100: #fafaf8;
+  --color-base-200: #f0f0ec;
+  --color-base-300: #dedfd8;
+  --color-base-content: #1c2024;
+  --color-primary: #0e6b6b;
+  --color-primary-content: #f2fbfa;
+  --color-secondary: #475259;
+  --color-secondary-content: #f5f7f8;
+  --color-accent: #0e6b6b;
+  --color-accent-content: #f2fbfa;
+  --color-neutral: #2a3036;
+  --color-neutral-content: #eef0f1;
+  --color-info: #2b6cb0;
+  --color-info-content: #eef5fc;
+  --color-success: #2f7d4f;
+  --color-success-content: #effaf2;
+  --color-warning: #b7791f;
+  --color-warning-content: #fff8e8;
+  --color-error: #b23a3a;
+  --color-error-content: #fdf0f0;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/packages/bundle/daisyui-theme" {
+  name: "dark";
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #15181b;
+  --color-base-200: #1c2024;
+  --color-base-300: #2a3036;
+  --color-base-content: #e6e8e9;
+  --color-primary: #3eb2ad;
+  --color-primary-content: #082322;
+  --color-secondary: #9aa6ad;
+  --color-secondary-content: #141a1d;
+  --color-accent: #3eb2ad;
+  --color-accent-content: #082322;
+  --color-neutral: #e6e8e9;
+  --color-neutral-content: #15181b;
+  --color-info: #6aa6e8;
+  --color-info-content: #0b1a2b;
+  --color-success: #5ec487;
+  --color-success-content: #0a2314;
+  --color-warning: #e2b25a;
+  --color-warning-content: #2a1e05;
+  --color-error: #e47474;
+  --color-error-content: #2b0c0c;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.75rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
 }
 
 [data-phx-session], [data-phx-teleported-src] { display: contents }
+
+.stat-value, .tabular { font-variant-numeric: tabular-nums; }

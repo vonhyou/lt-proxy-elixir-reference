@@ -58,27 +58,21 @@ defmodule LtProxyWeb.DashboardLive do
       flash={@flash}
       current={:dashboard}
       title="Dashboard"
-      subtitle="Live status, refreshed every 2 seconds"
+      subtitle="Refreshes every 2 seconds"
     >
-      <div class="stats stats-vertical w-full border border-base-300 bg-base-100 sm:stats-horizontal">
-        <.stat id="stat-slots" title="Slots in use" icon="hero-bolt">
-          {@status.slots_in_use} / {@status.max_concurrency}
+      <div class="grid grid-cols-2 gap-px overflow-hidden rounded-box border border-base-300 bg-base-300 sm:grid-cols-4">
+        <.stat id="stat-slots" label="In flight">
+          {@status.slots_in_use}<span class="text-base-content/40"> / {@status.max_concurrency}</span>
         </.stat>
-        <.stat id="stat-cache" title="Cache entries" icon="hero-circle-stack">
-          {@status.cache_entries}
-        </.stat>
-        <.stat id="stat-requests" title="Requests this minute" icon="hero-arrow-trending-up">
-          {@status.requests_this_minute}
-        </.stat>
-        <.stat id="stat-uptime" title="Uptime" icon="hero-clock">
-          {format_uptime(@status.uptime_s)}
-        </.stat>
+        <.stat id="stat-requests" label="Requests this minute">{@status.requests_this_minute}</.stat>
+        <.stat id="stat-cache" label="Cached translations">{@status.cache_entries}</.stat>
+        <.stat id="stat-uptime" label="Uptime">{format_uptime(@status.uptime_s)}</.stat>
       </div>
 
       <div class="grid gap-6 lg:grid-cols-3">
-        <div class="card card-border bg-base-100 lg:col-span-2">
+        <section class="card card-border bg-base-100 lg:col-span-2">
           <div class="card-body">
-            <h2 class="card-title"><.icon name="hero-language" class="size-5" /> Test translation</h2>
+            <h2 class="card-title text-base">Try a translation</h2>
             <.form for={@form} id="test-form" phx-change="change" phx-submit="translate">
               <.input field={@form[:text]} type="textarea" label="Text" rows="4" />
               <div class="flex items-end gap-3">
@@ -95,12 +89,9 @@ defmodule LtProxyWeb.DashboardLive do
               class="space-y-3 rounded-box bg-base-200 p-4"
             >
               <p id="result-text" class="whitespace-pre-wrap">{elem(@result, 1).text}</p>
-              <div class="flex flex-wrap gap-2">
-                <span class="badge badge-soft badge-info">
-                  detected: {elem(@result, 1).lang || "und"}
-                </span>
-                <span class="badge badge-ghost">{elem(@result, 1).ms} ms</span>
-              </div>
+              <p class="text-xs text-base-content/60">
+                Detected {elem(@result, 1).lang || "und"} · {elem(@result, 1).ms} ms
+              </p>
             </div>
 
             <div
@@ -113,12 +104,16 @@ defmodule LtProxyWeb.DashboardLive do
               <span>{message(elem(@result, 1))}</span>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="card card-border bg-base-100">
+        <section class="card card-border bg-base-100">
           <div class="card-body">
-            <h2 class="card-title"><.icon name="hero-server" class="size-5" /> Service</h2>
+            <h2 class="card-title text-base">Translation setup</h2>
             <dl class="space-y-3 text-sm">
+              <div>
+                <dt class="text-base-content/60">Provider</dt>
+                <dd id="stat-provider" class="font-medium">{@status.provider}</dd>
+              </div>
               <div>
                 <dt class="text-base-content/60">Model</dt>
                 <dd id="stat-model" class="font-mono break-all">{@status.model}</dd>
@@ -131,65 +126,65 @@ defmodule LtProxyWeb.DashboardLive do
             <div class="card-actions mt-auto pt-4">
               <button
                 id="clear-cache"
-                class="btn btn-error btn-soft btn-block"
+                class="btn btn-soft btn-block"
                 phx-click="clear_cache"
-                data-confirm="Clear all cached translations?"
+                data-confirm="Clear all cached translations? Clients will hit the model again."
               >
                 <.icon name="hero-trash" class="size-4" /> Clear cache
               </button>
             </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      <div class="card card-border bg-base-100">
+      <section class="card card-border bg-base-100">
         <div class="card-body">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 class="card-title"><.icon name="hero-key" class="size-5" /> API keys</h2>
-            <span id="keys-source" class="badge badge-sm badge-soft badge-info">set via env</span>
+            <h2 class="card-title text-base">API keys</h2>
+            <.link navigate={~p"/keys"} class="btn btn-sm btn-ghost">
+              Manage keys <.icon name="hero-arrow-right" class="size-4" />
+            </.link>
           </div>
           <p :if={@status.keys == []} id="keys-empty" class="text-sm text-base-content/70">
-            <.icon name="hero-exclamation-triangle" class="size-4 text-warning" />
-            No API keys configured, so the translation API is open. Set <code>LTP_API_KEYS</code>
-            to require keys.
+            No API keys yet; clients cannot translate until you create one.
           </p>
           <div :if={@status.keys != []} class="overflow-x-auto">
-            <table class="table">
+            <table class="table table-sm">
               <thead>
                 <tr>
                   <th>Name</th>
                   <th>Key</th>
-                  <th>Requests</th>
+                  <th class="text-right">Requests</th>
                   <th>Last used</th>
                 </tr>
               </thead>
               <tbody id="keys">
                 <tr :for={key <- @status.keys} id={"key-#{key.name}"}>
                   <td class="font-medium">{key.name}</td>
-                  <td><code class="text-sm">••••{key.last4}</code></td>
-                  <td>{key.requests}</td>
+                  <td><code class="text-sm">{key.hint}</code></td>
+                  <td class="text-right tabular">{key.requests}</td>
                   <td class="text-base-content/70">{format_time(key.last_used_at)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-      </div>
+      </section>
     </Layouts.app>
     """
   end
 
   attr :id, :string, required: true
-  attr :title, :string, required: true
-  attr :icon, :string, required: true
+  attr :label, :string, required: true
   slot :inner_block, required: true
 
   defp stat(assigns) do
     ~H"""
-    <div class="stat">
-      <div class="stat-figure text-primary"><.icon name={@icon} class="size-7" /></div>
-      <div class="stat-title">{@title}</div>
-      <div id={@id} class="stat-value text-2xl">{render_slot(@inner_block)}</div>
+    <div class="bg-base-100 px-5 py-4">
+      <p class="text-xs text-base-content/60">{@label}</p>
+      <p id={@id} class="stat-value mt-1 text-2xl font-semibold tracking-tight">
+        {render_slot(@inner_block)}
+      </p>
     </div>
     """
   end
@@ -202,7 +197,7 @@ defmodule LtProxyWeb.DashboardLive do
     do: "#{div(s, 86_400)}d #{div(rem(s, 86_400), 3600)}h #{div(rem(s, 3600), 60)}m"
 
   defp format_time(nil), do: "never"
-  defp format_time(%DateTime{} = t), do: Calendar.strftime(t, "%Y-%m-%d %H:%M:%S UTC")
+  defp format_time(%DateTime{} = t), do: Calendar.strftime(t, "%Y-%m-%d %H:%M UTC")
 
   defp message(:missing_text), do: "Enter some text to translate."
   defp message(:too_long), do: "The text is too long."
@@ -210,10 +205,10 @@ defmodule LtProxyWeb.DashboardLive do
   defp message(:invalid_lang), do: "Target must be a language code such as en or pt-BR."
   defp message(:empty_reply), do: "The model returned an empty reply."
   defp message({:transport, :timeout}), do: "The upstream request timed out."
-  defp message({:transport, _}), do: "Could not reach the upstream."
+  defp message({:transport, _}), do: "Could not reach the provider."
   defp message(:overloaded), do: "Too many translations in flight; try again shortly."
   defp message(:invalid_output), do: "The model returned output that could not be parsed."
   defp message(:crashed), do: "The translation crashed unexpectedly."
-  defp message({:upstream_status, status}), do: "Upstream returned HTTP #{status}."
+  defp message({:upstream_status, status}), do: "The provider returned HTTP #{status}."
   defp message(reason), do: "Translation failed: #{inspect(reason)}"
 end

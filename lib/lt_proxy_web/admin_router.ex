@@ -17,6 +17,7 @@ defmodule LtProxyWeb.AdminRouter do
 
     live_session :admin, on_mount: LtProxyWeb.AdminAuth do
       live "/", DashboardLive
+      live "/keys", KeysLive
       live "/settings", SettingsLive
     end
   end

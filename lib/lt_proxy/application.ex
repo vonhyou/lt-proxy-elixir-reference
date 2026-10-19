@@ -7,12 +7,11 @@ defmodule LtProxy.Application do
 
   @impl Application
   def start(_type, _args) do
-    LtProxy.ApiKeys.load!()
-
     base = [
       {Phoenix.PubSub, name: LtProxy.PubSub},
       {Task.Supervisor, name: LtProxy.TaskSupervisor},
-      LtProxy.Settings
+      LtProxy.Settings,
+      LtProxy.ApiKeys
     ]
 
     with {:ok, sup} <-
@@ -24,7 +23,8 @@ defmodule LtProxy.Application do
   end
 
   defp children do
-    line_length = 3 * Config.fetch!(:max_body_bytes) + 1024
+    # Room for a fully percent-encoded `q` of the maximum size in a GET query string.
+    line_length = 3 * LtProxy.Translate.Request.max_text_bytes() + 1024
 
     Enum.filter(
       [

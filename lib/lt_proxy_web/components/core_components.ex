@@ -54,7 +54,7 @@ defmodule LtProxyWeb.CoreComponents do
   attr :class, :any, default: nil
 
   attr :rest, :global,
-    include: ~w(autocomplete disabled form max maxlength min minlength pattern placeholder
+    include: ~w(autocomplete disabled form list max maxlength min minlength pattern placeholder
                 readonly required rows step)
 
   slot :help

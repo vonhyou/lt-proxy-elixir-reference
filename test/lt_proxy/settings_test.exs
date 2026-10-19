@@ -19,7 +19,7 @@ defmodule LtProxy.SettingsTest do
 
   test "serves editable and read-only keys like fetch_env!" do
     assert Config.fetch!(:model) == Application.fetch_env!(:lt_proxy, :model)
-    assert Config.fetch!(:openrouter_key) == "test-openrouter-key"
+    assert Config.fetch!(:provider_key) == "test-provider-key"
     assert Config.fetch!(:port) == 5000
     assert_raise ArgumentError, fn -> Settings.get(:no_such_setting) end
   end
@@ -58,7 +58,7 @@ defmodule LtProxy.SettingsTest do
     assert Settings.get(:rpm) == nil
 
     assert {:error, %{base: _}} = Settings.update(%{"port" => "1"})
-    assert {:error, %{base: _}} = Settings.update(%{"openrouter_key" => "sk"})
+    assert {:error, %{base: _}} = Settings.update(%{"provider_key" => "sk"})
     assert {:error, %{model: "can't be blank"}} = Settings.update(%{"model" => " "})
     refute File.exists?(file)
   end
@@ -69,8 +69,7 @@ defmodule LtProxy.SettingsTest do
       "zdr" => "false",
       "upstream_timeout_ms" => "2000",
       "rpm" => "",
-      "cache_ttl_ms" => "60000",
-      "max_body_bytes" => "1000",
+      "cache_ttl_hours" => "60",
       "_unused_model" => ""
     }
 
@@ -79,8 +78,7 @@ defmodule LtProxy.SettingsTest do
     assert Settings.get(:zdr) == false
     assert Settings.get(:upstream_timeout_ms) == 2000
     assert Settings.get(:rpm) == nil
-    assert Settings.get(:cache_ttl_ms) == 60_000
-    assert Settings.get(:max_body_bytes) == 1000
+    assert Settings.get(:cache_ttl_hours) == 60
   end
 
   test "a valid update survives a restart", %{path: file} do
@@ -101,14 +99,13 @@ defmodule LtProxy.SettingsTest do
       "upstream_timeout_ms" => "1",
       "max_concurrency" => "2",
       "rpm" => "3",
-      "cache_ttl_ms" => "4",
-      "max_body_bytes" => "5"
+      "cache_ttl_hours" => "4"
     }
 
     assert :ok = Settings.update(params)
     json = File.read!(file)
     refute json =~ "test-key"
-    refute json =~ "test-openrouter-key"
+    refute json =~ "test-provider-key"
     assert json |> JSON.decode!() |> Map.keys() |> Enum.sort() == Enum.sort(Map.keys(params))
   end
 
@@ -130,13 +127,12 @@ defmodule LtProxy.SettingsTest do
     assert Task.await(task) == :done
   end
 
-  test "cache_ttl_ms applies to newly committed entries" do
+  test "cache_ttl_hours applies to newly committed entries" do
     Cache.clear()
-    assert :ok = Settings.update(%{"cache_ttl_ms" => "1"})
+    assert :ok = Settings.update(%{"cache_ttl_hours" => "2"})
     assert {:ok, 1} = Cache.fetch("ttl", fn -> {:ok, 1} end)
-    assert Cache.size() == 1
-    Process.sleep(5)
-    assert {:ok, 2} = Cache.fetch("ttl", fn -> {:ok, 2} end)
+    assert {:ok, ttl} = Cachex.ttl(:translations, "ttl")
+    assert_in_delta ttl, :timer.hours(2), 1_000
   end
 
   defp entry(key), do: Enum.find(Settings.all(), &(&1.key == key))

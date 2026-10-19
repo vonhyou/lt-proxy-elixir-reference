@@ -18,7 +18,7 @@ defmodule LtProxyWeb.Admin.DashboardLiveTest do
     {:ok, view, _html} = live(conn, "/")
     status = Admin.status()
 
-    assert has_element?(view, ".stats .stat-title", "Slots in use")
+    assert has_element?(view, "#stat-provider", status.provider)
     assert has_element?(view, "#stat-slots", "0 / #{status.max_concurrency}")
     assert has_element?(view, "#stat-cache", "0")
     assert has_element?(view, "#stat-requests")
@@ -73,7 +73,7 @@ defmodule LtProxyWeb.Admin.DashboardLiveTest do
       send(pid, :go)
       html = render_async(view)
       assert has_element?(view, "#result-text", "Hello")
-      assert html =~ "detected: fr"
+      assert html =~ "Detected fr"
       assert html =~ ~r/\d+ ms/
       refute has_element?(view, "#test-form button[disabled]")
       assert has_element?(view, "#stat-cache", "1")
@@ -97,8 +97,7 @@ defmodule LtProxyWeb.Admin.DashboardLiveTest do
   test "shows an empty API keys state", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/")
 
-    assert has_element?(view, "#keys-source", "set via env")
-    assert has_element?(view, "#keys-empty", "LTP_API_KEYS")
+    assert has_element?(view, "#keys-empty", "No API keys yet")
     refute has_element?(view, "#keys")
   end
 
@@ -121,11 +120,10 @@ defmodule LtProxyWeb.Admin.DashboardLiveTest do
       ApiKeys.record_use("alice")
       {:ok, view, html} = live(conn, "/")
 
-      assert has_element?(view, "#keys-source", "set via env")
       assert has_element?(view, "#key-alice", "alice")
-      assert has_element?(view, "#key-alice", "••••wxyz")
+      assert has_element?(view, "#key-alice", "…wxyz")
       assert has_element?(view, "#key-alice td", "2")
-      assert has_element?(view, "#key-alice", ~r/\d{4}-\d\d-\d\d \d\d:\d\d:\d\d UTC/)
+      assert has_element?(view, "#key-alice", ~r/\d{4}-\d\d-\d\d \d\d:\d\d UTC/)
       assert has_element?(view, "#key-bob", "never")
       refute html =~ key
       refute has_element?(view, "#keys-empty")

@@ -1,23 +1,33 @@
 defmodule LtProxyWeb.SettingsLive do
   use LtProxyWeb, :live_view
 
-  alias LtProxy.Admin
+  alias LtProxy.{Admin, Upstream}
 
   @labels %{
     zdr: "Zero data retention",
-    upstream_timeout_ms: "Upstream timeout",
+    upstream_timeout_ms: "Provider timeout",
     rpm: "Rate limit",
-    cache_ttl_ms: "Cache TTL",
-    max_body_bytes: "Max body size",
+    cache_ttl_hours: "Cache lifetime",
     admin_hosts: "Admin hosts",
     data_dir: "Data directory",
-    openrouter_key: "OpenRouter key"
+    provider_url: "Provider URL",
+    provider_key: "Provider key"
   }
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "Settings") |> load()}
+    socket = socket |> assign(page_title: "Settings", models: []) |> load()
+
+    if connected?(socket),
+      do: {:ok, start_async(socket, :models, &Upstream.models/0)},
+      else: {:ok, socket}
   end
+
+  @impl true
+  def handle_async(:models, {:ok, {:ok, models}}, socket),
+    do: {:noreply, assign(socket, models: models)}
+
+  def handle_async(:models, _failed, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("validate", %{"settings" => params}, socket) do
@@ -43,62 +53,50 @@ defmodule LtProxyWeb.SettingsLive do
       flash={@flash}
       current={:settings}
       title="Settings"
-      subtitle="Changes apply immediately and are saved as overrides of the environment."
+      subtitle="Changes apply immediately and override the environment until changed again."
     >
-      <div class="card card-border bg-base-100">
-        <.form
-          for={@form}
-          id="settings-form"
-          class="card-body"
-          phx-change="validate"
-          phx-submit="save"
-        >
-          <h2 class="card-title">Translation</h2>
-          <div class="grid gap-x-6 sm:grid-cols-2">
-            <div
-              :for={s <- @editable}
-              id={"setting-#{s.key}"}
-              class={s.key in [:model, :zdr] && "sm:col-span-2"}
-            >
-              <.input
-                :if={s.key == :zdr}
-                field={@form[:zdr]}
-                type="checkbox"
-                label={label(:zdr)}
-                class="toggle toggle-success"
-              >
-                <:help>
-                  <span class="text-base-content">{hint(:zdr, nil)}</span>
-                  <.source_badge source={s.source} />
-                </:help>
-              </.input>
-              <.input
-                :if={s.key != :zdr}
-                field={@form[s.key]}
-                type={if s.key == :model, do: "text", else: "number"}
-                label={label(s.key)}
-                min={s.key != :model && "1"}
-                placeholder={s.key == :rpm && "unlimited"}
-              >
-                <:help>
-                  <.source_badge source={s.source} />
-                  {hint(s.key, @form[s.key].value)}
-                </:help>
-              </.input>
+      <.form for={@form} id="settings-form" class="space-y-6" phx-change="validate" phx-submit="save">
+        <section class="card card-border bg-base-100">
+          <div class="card-body">
+            <h2 class="card-title text-base">Model</h2>
+            <p class="text-sm text-base-content/60">
+              Provider <span class="font-medium text-base-content">{@provider}</span>, set by <code>LTP_PROVIDER</code>.
+            </p>
+            <div class="grid gap-x-6 sm:grid-cols-2">
+              <.field
+                :for={s <- @editable}
+                :if={s.key in [:model, :zdr]}
+                s={s}
+                form={@form}
+                models={@models}
+              />
             </div>
           </div>
-          <div class="card-actions justify-end pt-2">
-            <button class="btn btn-primary" phx-disable-with="Saving…">
-              <.icon name="hero-check" class="size-4" /> Save
-            </button>
-          </div>
-        </.form>
-      </div>
+        </section>
 
-      <div class="card card-border bg-base-100">
+        <section class="card card-border bg-base-100">
+          <div class="card-body">
+            <h2 class="card-title text-base">Limits</h2>
+            <div class="grid gap-x-6 sm:grid-cols-2">
+              <.field
+                :for={s <- @editable}
+                :if={s.key not in [:model, :zdr]}
+                s={s}
+                form={@form}
+                models={[]}
+              />
+            </div>
+            <div class="card-actions justify-end pt-2">
+              <button class="btn btn-primary" phx-disable-with="Saving…">Save changes</button>
+            </div>
+          </div>
+        </section>
+      </.form>
+
+      <section class="card card-border bg-base-100">
         <div class="card-body">
-          <h2 class="card-title">Read-only</h2>
-          <p class="text-sm text-base-content/60">Set through the environment; restart to change.</p>
+          <h2 class="card-title text-base">Environment</h2>
+          <p class="text-sm text-base-content/60">Set when the service starts; restart to change.</p>
           <div class="overflow-x-auto">
             <table class="table">
               <tbody>
@@ -114,8 +112,60 @@ defmodule LtProxyWeb.SettingsLive do
             </table>
           </div>
         </div>
-      </div>
+      </section>
     </Layouts.app>
+    """
+  end
+
+  attr :s, :map, required: true
+  attr :form, Phoenix.HTML.Form, required: true
+  attr :models, :list, required: true
+
+  defp field(%{s: %{key: :zdr}} = assigns) do
+    ~H"""
+    <div id="setting-zdr" class="sm:col-span-2">
+      <.input field={@form[:zdr]} type="checkbox" label={label(:zdr)} class="toggle toggle-success">
+        <:help>
+          <span class="text-base-content">{hint(:zdr, nil)}</span>
+          <.source_badge source={@s.source} />
+        </:help>
+      </.input>
+    </div>
+    """
+  end
+
+  defp field(%{s: %{key: :model}} = assigns) do
+    ~H"""
+    <div id="setting-model" class="sm:col-span-2">
+      <.input field={@form[:model]} label="Model" list="models" autocomplete="off">
+        <:help>
+          <.source_badge source={@s.source} />
+          {hint(:model, nil)}
+        </:help>
+      </.input>
+      <datalist id="models">
+        <option :for={model <- @models} value={model}></option>
+      </datalist>
+    </div>
+    """
+  end
+
+  defp field(assigns) do
+    ~H"""
+    <div id={"setting-#{@s.key}"}>
+      <.input
+        field={@form[@s.key]}
+        type="number"
+        label={label(@s.key)}
+        min="1"
+        placeholder={@s.key == :rpm && "unlimited"}
+      >
+        <:help>
+          <.source_badge source={@s.source} />
+          {hint(@s.key, @form[@s.key].value)}
+        </:help>
+      </.input>
+    </div>
     """
   end
 
@@ -134,24 +184,25 @@ defmodule LtProxyWeb.SettingsLive do
     """
   end
 
-  defp hint(:model, _value), do: "OpenRouter model or @preset/…"
-  defp hint(:zdr, _value), do: "Route only to zero-data-retention providers"
-  defp hint(:upstream_timeout_ms, _value), do: "Time budget per upstream request, ms"
-  defp hint(:max_concurrency, _value), do: "Concurrent upstream calls; excess get 503"
-  defp hint(:rpm, _value), do: "Requests per minute; blank for unlimited"
-  defp hint(:max_body_bytes, _value), do: "Request body limit, bytes"
+  defp hint(:model, _value), do: "Model id as the provider names it"
+  defp hint(:zdr, _value), do: "Route only to providers that keep no data"
+  defp hint(:upstream_timeout_ms, _value), do: "Milliseconds per request to the provider"
+  defp hint(:max_concurrency, _value), do: "Requests to the provider at the same time"
+  defp hint(:rpm, _value), do: "Requests per minute per key"
 
-  defp hint(:cache_ttl_ms, value) do
-    case hours(value) do
-      nil -> "Cache lifetime, ms"
-      h -> "Cache lifetime, ms (≈ #{h} h)"
-    end
-  end
+  defp hint(:cache_ttl_hours, _value), do: "Hours; 168 is one week"
 
   defp load(socket) do
     {editable, read_only} = Enum.split_with(Admin.settings(), & &1.editable)
     params = Map.new(editable, &{Atom.to_string(&1.key), display(&1.value)})
-    assign(socket, editable: editable, read_only: read_only, form: form(params, %{}))
+    provider = Enum.find_value(read_only, &(&1.key == :provider && &1.value))
+
+    assign(socket,
+      editable: editable,
+      read_only: Enum.reject(read_only, &(&1.key == :provider)),
+      provider: provider,
+      form: form(params, %{})
+    )
   end
 
   defp form(params, errors) do
@@ -162,13 +213,6 @@ defmodule LtProxyWeb.SettingsLive do
     case Admin.validate_settings(params) do
       :ok -> %{}
       {:error, errors} -> errors
-    end
-  end
-
-  defp hours(value) do
-    case Integer.parse(to_string(value)) do
-      {ms, ""} when ms > 0 -> Float.round(ms / 3_600_000, 2)
-      _ -> nil
     end
   end
 

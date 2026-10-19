@@ -130,7 +130,12 @@ defmodule LtProxyWeb.Api.TranslateControllerTest do
     :ok = LtProxy.Settings.update(%{"rpm" => "1"})
     on_exit(fn -> capture_log(fn -> LtProxy.Settings.update(%{"rpm" => ""}) end) end)
 
-    RateLimit.check()
+    :ets.delete_all_objects(RateLimit)
+    RateLimit.check("other")
+
+    assert %{"translatedText" => "Hello"} =
+             translate(conn, %{q: "Bonjour", target: "en"}) |> json_response(200)
+
     conn = translate(conn, %{q: "Bonjour", target: "en"})
     assert %{"error" => "Slowdown: too many requests"} = json_response(conn, 429)
   end

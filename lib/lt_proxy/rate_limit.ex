@@ -1,5 +1,5 @@
 defmodule LtProxy.RateLimit do
-  @moduledoc "Counts requests per minute; rejects those over `:rpm` when it is set."
+  @moduledoc "Counts requests per key and minute; rejects those over `:rpm` when it is set."
 
   use GenServer
 
@@ -11,18 +11,16 @@ defmodule LtProxy.RateLimit do
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
-  @spec check(integer()) :: :ok | {:error, :rate_limited}
-  def check(now_ms \\ System.system_time(:millisecond)) do
-    minute = div(now_ms, @minute)
-    @table |> :ets.update_counter(minute, 1, {minute, 0}) |> decide(Config.fetch!(:rpm))
+  @spec check(String.t(), integer()) :: :ok | {:error, :rate_limited}
+  def check(key, now_ms \\ System.system_time(:millisecond)) do
+    slot = {key, div(now_ms, @minute)}
+    @table |> :ets.update_counter(slot, 1, {slot, 0}) |> decide(Config.fetch!(:rpm))
   end
 
   @spec current_count(integer()) :: non_neg_integer()
   def current_count(now_ms \\ System.system_time(:millisecond)) do
-    case :ets.lookup(@table, div(now_ms, @minute)) do
-      [{_minute, count}] -> count
-      [] -> 0
-    end
+    minute = div(now_ms, @minute)
+    @table |> :ets.select([{{{:_, minute}, :"$1"}, [], [:"$1"]}]) |> Enum.sum()
   end
 
   @spec decide(non_neg_integer(), pos_integer() | nil) :: :ok | {:error, :rate_limited}
@@ -40,7 +38,7 @@ defmodule LtProxy.RateLimit do
   @impl GenServer
   def handle_info(:sweep, state) do
     current = div(System.system_time(:millisecond), @minute)
-    :ets.select_delete(@table, [{{:"$1", :_}, [{:<, :"$1", current}], [true]}])
+    :ets.select_delete(@table, [{{{:_, :"$1"}, :_}, [{:<, :"$1", current}], [true]}])
     schedule_sweep()
     {:noreply, state}
   end

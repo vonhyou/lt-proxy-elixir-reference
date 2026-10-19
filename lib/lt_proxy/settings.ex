@@ -11,16 +11,18 @@ defmodule LtProxy.Settings do
   alias LtProxy.Slots
 
   @key __MODULE__
-  @editable [
-    :model,
-    :zdr,
-    :upstream_timeout_ms,
-    :max_concurrency,
-    :rpm,
-    :cache_ttl_ms,
-    :max_body_bytes
+  @editable [:model, :zdr, :upstream_timeout_ms, :max_concurrency, :rpm, :cache_ttl_hours]
+  @read_only [
+    :provider,
+    :provider_url,
+    :port,
+    :bind,
+    :admin_port,
+    :admin_bind,
+    :admin_hosts,
+    :cache_limit,
+    :data_dir
   ]
-  @read_only [:port, :bind, :admin_port, :admin_bind, :admin_hosts, :cache_limit, :data_dir]
   @fields Map.new(@editable, &{Atom.to_string(&1), &1})
 
   @type source :: :default | :env | :file

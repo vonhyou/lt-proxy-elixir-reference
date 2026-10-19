@@ -12,7 +12,8 @@ defmodule LtProxy.UpstreamTest do
       assert %{"model" => _, "messages" => [_], "provider" => %{"zdr" => true}, "extra" => 1} =
                JSON.decode!(body)
 
-      assert ["Bearer test-openrouter-key"] = Plug.Conn.get_req_header(conn, "authorization")
+      assert ["Bearer test-provider-key"] = Plug.Conn.get_req_header(conn, "authorization")
+      assert ["lt_proxy"] = Plug.Conn.get_req_header(conn, "x-title")
 
       Req.Test.json(conn, %{
         "choices" => [%{"message" => %{"content" => "hi"}}],

@@ -28,6 +28,28 @@ defmodule LtProxy.SlotsTest do
     assert Slots.in_use() == 0
   end
 
+  test "waits for a slot within the given budget" do
+    test = self()
+
+    task =
+      Task.async(fn ->
+        Slots.run(fn ->
+          send(test, :running)
+          receive do: (:release -> :done)
+        end)
+      end)
+
+    assert_receive :running
+    assert {:error, :overloaded} = Slots.run(fn -> :never end, 100)
+
+    waiter = Task.async(fn -> Slots.run(fn -> :got_it end, 2_000) end)
+    Process.sleep(100)
+    send(task.pid, :release)
+    assert Task.await(waiter) == :got_it
+    assert Task.await(task) == :done
+    assert Slots.in_use() == 0
+  end
+
   test "keeps counting in-flight calls when the cap changes" do
     test = self()
 

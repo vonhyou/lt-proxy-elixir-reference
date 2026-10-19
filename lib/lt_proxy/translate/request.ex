@@ -5,6 +5,8 @@ defmodule LtProxy.Translate.Request do
 
   @max_text_bytes 20_000
 
+  def max_text_bytes, do: @max_text_bytes
+
   @enforce_keys [:text, :source, :target]
   defstruct [:text, :source, :target, format: :text]
 

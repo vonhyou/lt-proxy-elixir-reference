@@ -11,13 +11,17 @@ defmodule LtProxyWeb.AdminAuth do
   @impl Plug
   def call(conn, _opts) do
     cond do
-      conn.host not in hosts() ->
-        conn |> put_resp_content_type("text/plain") |> send_resp(400, "Bad host") |> halt()
+      not allowed_host?(conn.host) ->
+        conn
+        |> put_resp_content_type("text/plain")
+        |> send_resp(400, "Bad host: add #{conn.host} to LTP_ADMIN_HOSTS")
+        |> halt()
 
       authorized?(conn) ->
         conn |> fetch_session() |> put_session(:admin, session_token())
 
       true ->
+        if Plug.BasicAuth.parse_basic_auth(conn) != :error, do: Process.sleep(failed_delay())
         conn |> Plug.BasicAuth.request_basic_auth(realm: "LtProxy admin") |> halt()
     end
   end
@@ -28,7 +32,22 @@ defmodule LtProxyWeb.AdminAuth do
       else: {:halt, Phoenix.LiveView.redirect(socket, to: "/")}
   end
 
-  def allowed_origin?(%URI{host: host}), do: host in hosts()
+  def allowed_origin?(%URI{host: host}), do: allowed_host?(host)
+
+  # Hostnames need listing (DNS rebinding); IP literals and localhost are always fine.
+  defp allowed_host?(nil), do: false
+
+  defp allowed_host?(host) do
+    host in ["localhost" | hosts()] or
+      match?(
+        {:ok, _ip},
+        host
+        |> String.trim_leading("[")
+        |> String.trim_trailing("]")
+        |> String.to_charlist()
+        |> :inet.parse_address()
+      )
+  end
 
   # Tied to the password, so changing it invalidates existing sessions and sockets.
   def session_token do
@@ -51,6 +70,9 @@ defmodule LtProxyWeb.AdminAuth do
   defp digest(user, pass), do: :crypto.hash(:sha256, [user, 0, pass])
 
   defp password, do: Application.fetch_env!(:lt_proxy, :admin_password)
+
+  # Slows down password guessing; wrong credentials cost a second per attempt.
+  defp failed_delay, do: Application.get_env(:lt_proxy, :admin_failed_delay_ms, 1_000)
 
   defp hosts, do: Application.fetch_env!(:lt_proxy, :admin_hosts)
 end

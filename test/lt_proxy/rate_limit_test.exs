@@ -18,20 +18,21 @@ defmodule LtProxy.RateLimitTest do
       on_exit(fn -> capture_log(fn -> Settings.update(%{"rpm" => ""}) end) end)
     end
 
-    test "limits requests per minute" do
+    test "limits requests per key and minute" do
       now = 10 * 60_000
 
-      assert :ok = RateLimit.check(now)
-      assert :ok = RateLimit.check(now + 1)
-      assert {:error, :rate_limited} = RateLimit.check(now + 2)
-      assert :ok = RateLimit.check(now + 60_000)
+      assert :ok = RateLimit.check("a", now)
+      assert :ok = RateLimit.check("a", now + 1)
+      assert {:error, :rate_limited} = RateLimit.check("a", now + 2)
+      assert :ok = RateLimit.check("b", now + 3)
+      assert :ok = RateLimit.check("a", now + 60_000)
     end
   end
 
-  test "counts without limiting when disabled" do
+  test "counts all keys without limiting when disabled" do
     now = 20 * 60_000
 
-    for _ <- 1..3, do: assert(:ok = RateLimit.check(now))
+    for key <- ~w(a a b), do: assert(:ok = RateLimit.check(key, now))
     assert RateLimit.current_count(now) == 3
     assert RateLimit.current_count(now + 60_000) == 0
   end
@@ -43,7 +44,7 @@ defmodule LtProxy.RateLimitTest do
     assert_receive {:DOWN, ^ref, :process, ^pid, :killed}
 
     await_restart(pid)
-    assert :ok = RateLimit.check(0)
+    assert :ok = RateLimit.check("a", 0)
   end
 
   defp await_restart(old) do

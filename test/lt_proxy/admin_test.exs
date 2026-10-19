@@ -32,10 +32,10 @@ defmodule LtProxy.AdminTest do
     settings = Admin.settings()
 
     assert %{value: "••••-key", secret: true, editable: false} =
-             Enum.find(settings, &(&1.key == :openrouter_key))
+             Enum.find(settings, &(&1.key == :provider_key))
 
     assert %{secret: false, editable: true} = Enum.find(settings, &(&1.key == :model))
-    refute inspect(settings) =~ "test-openrouter-key"
+    refute inspect(settings) =~ "test-provider-key"
   end
 
   test "clear_cache/0 empties the cache" do

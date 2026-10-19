@@ -1,10 +1,10 @@
 defmodule LtProxy.Admin do
   @moduledoc "Facade for the admin LiveViews."
 
-  alias LtProxy.{ApiKeys, Cache, Config, RateLimit, Settings, Slots, Translator}
+  alias LtProxy.{ApiKeys, Cache, Config, Provider, RateLimit, Settings, Slots, Translator}
   alias LtProxy.Translate.{Prompt, Request}
 
-  @secrets [:openrouter_key]
+  @secrets [:provider_key]
 
   @spec status() :: map()
   def status do
@@ -16,6 +16,7 @@ defmodule LtProxy.Admin do
       cache_entries: Cache.size(),
       requests_this_minute: RateLimit.current_count(),
       uptime_s: div(uptime_ms, 1000),
+      provider: Provider.name(Config.fetch!(:provider)),
       model: Config.fetch!(:model),
       prompt_version: Prompt.version(),
       keys: ApiKeys.list()
@@ -30,7 +31,16 @@ defmodule LtProxy.Admin do
         %{key: key, value: mask(Config.fetch!(key)), source: :env, editable: false, secret: true}
       end
 
-    Enum.map(Settings.all(), &Map.put(&1, :secret, false)) ++ secrets
+    provider = Config.fetch!(:provider)
+
+    Settings.all()
+    |> Enum.reject(&(&1.key == :zdr and not provider.features().zdr))
+    |> Enum.map(fn
+      %{key: :provider, value: module} = s -> %{s | value: Provider.name(module)}
+      s -> s
+    end)
+    |> Enum.map(&Map.put(&1, :secret, false))
+    |> Kernel.++(secrets)
   end
 
   @spec validate_settings(map()) :: :ok | {:error, %{atom() => String.t()}}
@@ -41,6 +51,12 @@ defmodule LtProxy.Admin do
 
   @spec clear_cache() :: :ok
   def clear_cache, do: Cache.clear()
+
+  @spec create_key(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def create_key(name), do: ApiKeys.create(name)
+
+  @spec revoke_key(String.t()) :: :ok | {:error, String.t()}
+  def revoke_key(name), do: ApiKeys.revoke(name)
 
   @spec test_translate(String.t(), String.t()) ::
           {:ok, %{text: String.t(), lang: String.t() | nil, ms: non_neg_integer()}}

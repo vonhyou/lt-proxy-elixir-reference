@@ -1,14 +1,15 @@
 import Config
 
 config :lt_proxy,
-  openrouter_key: nil,
+  provider: LtProxy.Provider.OpenRouter,
+  provider_key: nil,
+  provider_url: "https://openrouter.ai/api/v1",
   model: "anthropic/claude-haiku-5.5",
   zdr: true,
   upstream_timeout_ms: 15_000,
   max_concurrency: 4,
-  cache_ttl_ms: :timer.hours(24 * 7),
+  cache_ttl_hours: 24 * 7,
   cache_limit: 10_000,
-  max_body_bytes: 100_000,
   rpm: nil,
   port: 5000,
   bind: "0.0.0.0",

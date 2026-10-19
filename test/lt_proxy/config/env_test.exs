@@ -19,7 +19,7 @@ defmodule LtProxy.Config.EnvTest do
     refute Keyword.has_key?(env, :rpm)
     assert env[:max_concurrency] == 3
     assert env[:zdr] == false
-    assert env[:cache_ttl_ms] == :timer.hours(2)
+    assert env[:cache_ttl_hours] == 2
     assert env[:admin_hosts] == ["a.example", "b.example"]
   end
 

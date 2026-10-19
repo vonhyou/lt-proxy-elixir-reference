@@ -33,12 +33,14 @@ RUN apt-get update \
  && useradd --system --home /app app \
  && mkdir -p /app/data && chown app /app/data
 
-ENV LANG=C.UTF-8 LTP_ADMIN_BIND=0.0.0.0
+# The release stays root-owned and read-only to the app; only /app/data is writable.
+# Distribution is off: no epmd, no node port, and the build-time cookie is never used.
+ENV LANG=C.UTF-8 LTP_ADMIN_BIND=0.0.0.0 RELEASE_DISTRIBUTION=none
 WORKDIR /app
-COPY --from=build --chown=app /app/_build/prod/rel/lt_proxy ./
+COPY --from=build /app/_build/prod/rel/lt_proxy ./
 USER app
 
 VOLUME /app/data
 EXPOSE 5000 5001
-HEALTHCHECK CMD curl -fsS "http://localhost:${LTP_PORT:-5000}/health" || exit 1
+HEALTHCHECK CMD curl -fsS "http://127.0.0.1:${LTP_PORT:-5000}/health" || exit 1
 CMD ["bin/lt_proxy", "start"]

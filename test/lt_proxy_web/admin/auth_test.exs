@@ -9,13 +9,24 @@ defmodule LtProxyWeb.Admin.AuthTest do
     assert get_resp_header(conn, "www-authenticate") != []
   end
 
-  test "wrong password returns 401", %{conn: conn} do
-    assert conn |> authorize("nope") |> get("/") |> Map.fetch!(:status) == 401
+  test "wrong password returns 401 after a delay", %{conn: conn} do
+    {elapsed, conn} = :timer.tc(fn -> conn |> authorize("nope") |> get("/") end, :millisecond)
+    assert conn.status == 401
+    assert elapsed >= Application.fetch_env!(:lt_proxy, :admin_failed_delay_ms)
   end
 
   test "wrong host returns 400 before auth", %{conn: conn} do
     conn = %{conn | host: "evil.example"} |> authorize() |> get("/")
     assert conn.status == 400
+    assert conn.resp_body =~ "add evil.example to LTP_ADMIN_HOSTS"
+  end
+
+  test "IP literals and localhost are always allowed", %{conn: conn} do
+    for host <- ["10.0.0.5", "[::1]", "localhost"] do
+      assert %{conn | host: host} |> authorize() |> get("/") |> Map.fetch!(:status) == 200
+    end
+
+    assert AdminAuth.allowed_origin?(URI.parse("http://[fd00::1]:5001"))
   end
 
   test "authorized request sets the admin session flag and security headers", %{conn: conn} do

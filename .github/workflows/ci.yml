@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -38,6 +39,7 @@ jobs:
       - run: mix assets.setup && mix assets.build
 
   docker:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     strategy:
       matrix:

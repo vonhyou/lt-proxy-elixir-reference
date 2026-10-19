@@ -1,7 +1,7 @@
 defmodule LtProxy.Cache do
   @moduledoc """
   Translation cache. Concurrent fetches of the same key share one loader call;
-  errors are never cached. Each entry expires after the `:cache_ttl_ms` current at commit.
+  errors are never cached. Each entry expires after the `:cache_ttl_hours` current at commit.
   """
 
   import Cachex.Spec
@@ -33,7 +33,7 @@ defmodule LtProxy.Cache do
     result =
       Cachex.fetch(@name, key, fn _key ->
         case loader.() do
-          {:ok, value} -> {:commit, value, expire: Config.fetch!(:cache_ttl_ms)}
+          {:ok, value} -> {:commit, value, expire: :timer.hours(Config.fetch!(:cache_ttl_hours))}
           error -> {:ignore, error}
         end
       end)

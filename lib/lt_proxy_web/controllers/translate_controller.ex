@@ -13,8 +13,8 @@ defmodule LtProxyWeb.TranslateController do
   def languages(conn, _params), do: json(conn, Lang.supported())
 
   def translate(conn, params) do
-    with :ok <- authenticate(params["api_key"]),
-         :ok <- RateLimit.check(),
+    with {:ok, key} <- authenticate(params["api_key"]),
+         :ok <- RateLimit.check(key),
          {:ok, request} <- Request.from_params(params),
          {:ok, result} <- Translator.translate(request) do
       json(conn, %{
@@ -29,6 +29,7 @@ defmodule LtProxyWeb.TranslateController do
       {:ok, name} ->
         Logger.metadata(key: name)
         ApiKeys.record_use(name)
+        {:ok, name}
 
       :error ->
         {:error, :forbidden}

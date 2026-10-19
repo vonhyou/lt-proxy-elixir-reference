@@ -1,8 +1,7 @@
 # cp .env.example .env, fill it in, then: docker compose -f compose.example.yml up -d
 services:
   lt-proxy:
-    image: lt_proxy:latest
-    build: .
+    image: ghcr.io/vonhyou/lt-proxy-elixir-reference:latest
     restart: unless-stopped
     env_file: .env
     ports:

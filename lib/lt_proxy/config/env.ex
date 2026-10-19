@@ -2,6 +2,8 @@ defmodule LtProxy.Config.Env do
   @moduledoc "Parses `LTP_*` environment variables; used by `config/runtime.exs`."
 
   @vars [
+    provider: {"LTP_PROVIDER", :string},
+    provider_url: {"LTP_PROVIDER_URL", :string},
     model: {"LTP_MODEL", :string},
     zdr: {"LTP_ZDR", :bool},
     port: {"LTP_PORT", :int},
@@ -11,9 +13,8 @@ defmodule LtProxy.Config.Env do
     admin_hosts: {"LTP_ADMIN_HOSTS", :list},
     upstream_timeout_ms: {"LTP_UPSTREAM_TIMEOUT_MS", :int},
     max_concurrency: {"LTP_MAX_CONCURRENCY", :int},
-    cache_ttl_ms: {"LTP_CACHE_TTL_HOURS", :hours},
+    cache_ttl_hours: {"LTP_CACHE_TTL_HOURS", :int},
     cache_limit: {"LTP_CACHE_LIMIT", :int},
-    max_body_bytes: {"LTP_MAX_BODY_BYTES", :int},
     rpm: {"LTP_RPM", :int},
     data_dir: {"LTP_DATA_DIR", :string}
   ]
@@ -40,5 +41,4 @@ defmodule LtProxy.Config.Env do
   defp parse(:list, value), do: value |> String.split(",", trim: true) |> Enum.map(&String.trim/1)
   defp parse(:bool, value), do: value != "false"
   defp parse(:int, value), do: String.to_integer(value)
-  defp parse(:hours, value), do: :timer.hours(String.to_integer(value))
 end
