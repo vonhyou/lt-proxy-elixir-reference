@@ -24,11 +24,14 @@ defmodule LtProxy.Provider.OpenAI do
       when is_binary(content) and content != "",
       do: {:ok, content, body["usage"]}
 
-  def parse_chat(_body), do: {:error, :empty_reply}
+  def parse_chat(body), do: {:error, {:empty_reply, finish_reason(body)}}
 
   @impl true
   def parse_models(%{"data" => models}) when is_list(models),
     do: models |> Enum.flat_map(&List.wrap(&1["id"])) |> Enum.sort()
 
   def parse_models(_body), do: []
+
+  defp finish_reason(%{"choices" => [%{"finish_reason" => reason} | _]}), do: reason
+  defp finish_reason(_body), do: nil
 end

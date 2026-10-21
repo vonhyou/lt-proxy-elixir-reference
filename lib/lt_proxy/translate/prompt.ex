@@ -19,9 +19,9 @@ defmodule LtProxy.Translate.Prompt do
     ]
   end
 
-  @doc "Extra OpenRouter request parameters; `max_tokens` bounds runaway replies."
+  @doc "Extra request parameters; `max_tokens` leaves room for any reasoning and bounds runaway replies."
   @spec params(Request.t()) :: map()
-  def params(%Request{text: text}), do: %{max_tokens: byte_size(text) + 256}
+  def params(%Request{text: text}), do: %{max_tokens: min(2 * byte_size(text) + 2048, 16_384)}
 
   # "source"/"translation" keys (not "lang"/"text") and no "return unchanged"
   # rule: both made the model echo the input back untranslated.

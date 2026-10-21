@@ -5,6 +5,8 @@ defmodule LtProxy.Provider.OpenRouter do
 
   alias LtProxy.Provider.OpenAI
 
+  @efforts ~w(minimal low medium high xhigh max)
+
   @impl true
   def default_url, do: "https://openrouter.ai/api/v1"
 
@@ -20,7 +22,14 @@ defmodule LtProxy.Provider.OpenRouter do
   @impl true
   def chat_request(%{zdr: zdr} = chat) do
     [url: url, json: json] = OpenAI.chat_request(chat)
-    [url: url, json: Map.put(json, :provider, %{zdr: zdr})]
+
+    # Reasoning tokens count against max_tokens and add nothing to a translation.
+    json =
+      json
+      |> Map.put(:provider, %{zdr: zdr})
+      |> Map.put(:reasoning, chat[:reasoning] || %{effort: "none"})
+
+    [url: url, json: json]
   end
 
   @impl true
@@ -28,4 +37,18 @@ defmodule LtProxy.Provider.OpenRouter do
 
   @impl true
   defdelegate parse_models(body), to: OpenAI
+
+  @impl true
+  def mandatory_reasoning(%{"data" => models}, model) when is_list(models) do
+    case Enum.find(models, &(&1["id"] == model)) do
+      %{"reasoning" => %{"mandatory" => true} = reasoning} ->
+        supported = reasoning["supported_efforts"] || []
+        %{effort: Enum.find(@efforts, "low", &(&1 in supported))}
+
+      _ ->
+        nil
+    end
+  end
+
+  def mandatory_reasoning(_body, _model), do: nil
 end

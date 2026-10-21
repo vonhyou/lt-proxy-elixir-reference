@@ -26,14 +26,78 @@ defmodule LtProxy.UpstreamTest do
 
   test "handles empty replies" do
     Req.Test.stub(Upstream, &Req.Test.json(&1, %{"choices" => []}))
-    assert {:error, :empty_reply} = Upstream.chat(@messages)
+    assert {:error, {:empty_reply, nil}} = Upstream.chat(@messages)
 
-    Req.Test.stub(
-      Upstream,
-      &Req.Test.json(&1, %{"choices" => [%{"message" => %{"content" => ""}}]})
-    )
+    Req.Test.stub(Upstream, &LtProxy.UpstreamStub.empty_reply(&1, "length"))
+    assert {:error, {:empty_reply, "length"}} = Upstream.chat(@messages)
+  end
 
-    assert {:error, :empty_reply} = Upstream.chat(@messages)
+  describe "mandatory reasoning" do
+    setup do
+      model = "mandatory/model-#{System.unique_integer([:positive])}"
+      ExUnit.CaptureLog.capture_log(fn -> put_setting(:model, model) end)
+      %{model: model}
+    end
+
+    test "retries with the model's lowest effort once it rejects reasoning off", %{model: model} do
+      test = self()
+
+      Req.Test.stub(Upstream, fn conn ->
+        case conn.request_path do
+          "/api/v1/models" ->
+            send(test, :models)
+
+            Req.Test.json(conn, %{
+              "data" => [
+                %{
+                  "id" => model,
+                  "reasoning" => %{
+                    "mandatory" => true,
+                    "supported_efforts" => ["medium", "minimal"]
+                  }
+                }
+              ]
+            })
+
+          _chat ->
+            {:ok, body, conn} = Plug.Conn.read_body(conn)
+            effort = JSON.decode!(body)["reasoning"]["effort"]
+            send(test, {:chat, effort})
+
+            if effort == "none",
+              do: Plug.Conn.send_resp(conn, 400, "{}"),
+              else: Req.Test.json(conn, %{"choices" => [%{"message" => %{"content" => "hi"}}]})
+        end
+      end)
+
+      assert {:ok, "hi", nil} = Upstream.chat(@messages)
+      assert_received {:chat, "none"}
+      assert_received :models
+      assert_received {:chat, "minimal"}
+
+      assert {:ok, "hi", nil} = Upstream.chat(@messages)
+      assert_received {:chat, "minimal"}
+      refute_received :models
+      refute_received {:chat, "none"}
+    end
+
+    test "keeps the 400 and looks the model up only once when reasoning is optional" do
+      test = self()
+
+      Req.Test.stub(Upstream, fn conn ->
+        send(test, conn.request_path)
+
+        if conn.request_path =~ "/models",
+          do: Req.Test.json(conn, %{"data" => []}),
+          else: Plug.Conn.send_resp(conn, 400, "{}")
+      end)
+
+      assert {:error, {:upstream_status, 400}} = Upstream.chat(@messages)
+      assert {:error, {:upstream_status, 400}} = Upstream.chat(@messages)
+
+      assert_received "/api/v1/models"
+      refute_received "/api/v1/models"
+    end
   end
 
   test "maps error statuses" do
