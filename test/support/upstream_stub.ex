@@ -16,4 +16,11 @@ defmodule LtProxy.UpstreamStub do
       "usage" => usage
     })
   end
+
+  @doc "Sends a chat completion with no content, as when reasoning uses up `max_tokens`."
+  def empty_reply(conn, finish_reason) do
+    Req.Test.json(conn, %{
+      "choices" => [%{"message" => %{"content" => ""}, "finish_reason" => finish_reason}]
+    })
+  end
 end

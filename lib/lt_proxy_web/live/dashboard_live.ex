@@ -203,7 +203,11 @@ defmodule LtProxyWeb.DashboardLive do
   defp message(:too_long), do: "The text is too long."
   defp message(:missing_target), do: "Enter a target language."
   defp message(:invalid_lang), do: "Target must be a language code such as en or pt-BR."
-  defp message(:empty_reply), do: "The model returned an empty reply."
+
+  defp message({:empty_reply, reason}) when reason in ["length", "max_tokens"],
+    do: "The model used up its token budget without replying."
+
+  defp message({:empty_reply, _reason}), do: "The model returned an empty reply."
   defp message({:transport, :timeout}), do: "The upstream request timed out."
   defp message({:transport, _}), do: "Could not reach the provider."
   defp message(:overloaded), do: "Too many translations in flight; try again shortly."

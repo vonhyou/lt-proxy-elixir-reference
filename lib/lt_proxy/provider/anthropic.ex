@@ -33,12 +33,12 @@ defmodule LtProxy.Provider.Anthropic do
   @impl true
   def parse_chat(%{"content" => content} = body) when is_list(content) do
     case Enum.map_join(content, "", &text/1) do
-      "" -> {:error, :empty_reply}
+      "" -> {:error, {:empty_reply, body["stop_reason"]}}
       text -> {:ok, text, usage(body["usage"])}
     end
   end
 
-  def parse_chat(_body), do: {:error, :empty_reply}
+  def parse_chat(body), do: {:error, {:empty_reply, body["stop_reason"]}}
 
   @impl true
   def parse_models(%{"data" => models}) when is_list(models),

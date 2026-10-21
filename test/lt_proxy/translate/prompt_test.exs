@@ -16,9 +16,16 @@ defmodule LtProxy.Translate.PromptTest do
     refute system =~ "HTML"
   end
 
-  test "bounds max_tokens by input size" do
-    assert %{max_tokens: 261} =
+  test "sizes max_tokens by input, with room for reasoning and a cap" do
+    assert %{max_tokens: 2058} =
              Prompt.params(%Request{text: "hello", source: "auto", target: "en"})
+
+    assert %{max_tokens: 16_384} =
+             Prompt.params(%Request{
+               text: String.duplicate("a", 20_000),
+               source: "auto",
+               target: "en"
+             })
   end
 
   test "mentions an explicit source and html format" do

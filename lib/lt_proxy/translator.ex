@@ -8,6 +8,9 @@ defmodule LtProxy.Translator do
 
   @type result :: %{text: String.t(), lang: String.t() | nil}
 
+  # Finish reasons for a reply cut off by max_tokens (OpenAI-style, Anthropic).
+  @truncated ["length", "max_tokens"]
+
   @spec translate(Request.t()) :: {:ok, result()} | {:error, term()}
   def translate(%Request{source: lang, target: lang, text: text}),
     do: {:ok, %{text: text, lang: lang}}
@@ -19,7 +22,7 @@ defmodule LtProxy.Translator do
   defp call(request) do
     started = System.monotonic_time(:millisecond)
 
-    with {:ok, content, usage} <- Upstream.chat(Prompt.build(request), Prompt.params(request)),
+    with {:ok, content, usage} <- chat(request),
          {:ok, output} <- Output.parse(content) do
       log_usage(request, usage, started)
       {:ok, %{text: output.text, lang: detected(request.source, output.lang)}}
@@ -27,6 +30,18 @@ defmodule LtProxy.Translator do
       {:error, reason} = error ->
         Logger.warning("translation failed: #{inspect(reason)}")
         error
+    end
+  end
+
+  # An empty reply cut off by max_tokens means reasoning used the budget; retry once with double.
+  defp chat(request) do
+    messages = Prompt.build(request)
+    params = Prompt.params(request)
+
+    with {:error, {:empty_reply, reason}} when reason in @truncated <-
+           Upstream.chat(messages, params) do
+      Logger.warning("empty reply (finish_reason=#{reason}), retrying with more tokens")
+      Upstream.chat(messages, %{params | max_tokens: 2 * params.max_tokens})
     end
   end
 

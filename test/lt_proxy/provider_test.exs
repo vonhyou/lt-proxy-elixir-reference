@@ -27,14 +27,47 @@ defmodule LtProxy.ProviderTest do
                "usage" => %{"total_tokens" => 3}
              })
 
-    assert {:error, :empty_reply} = OpenAI.parse_chat(%{"choices" => []})
+    assert {:error, {:empty_reply, nil}} = OpenAI.parse_chat(%{"choices" => []})
+
+    assert {:error, {:empty_reply, "length"}} =
+             OpenAI.parse_chat(%{
+               "choices" => [%{"message" => %{"content" => nil}, "finish_reason" => "length"}]
+             })
+
     assert OpenAI.parse_models(%{"data" => [%{"id" => "b"}, %{"id" => "a"}, %{}]}) == ["a", "b"]
     assert OpenAI.parse_models(%{}) == []
   end
 
-  test "OpenRouter adds the zdr routing flag" do
-    assert [url: "/chat/completions", json: %{provider: %{zdr: true}}] =
+  test "OpenRouter adds the zdr routing flag and turns reasoning off" do
+    assert [
+             url: "/chat/completions",
+             json: %{provider: %{zdr: true}, reasoning: %{effort: "none"}}
+           ] =
              OpenRouter.chat_request(@chat)
+
+    assert [url: _, json: %{reasoning: %{effort: "low"}}] =
+             OpenRouter.chat_request(Map.put(@chat, :reasoning, %{effort: "low"}))
+  end
+
+  test "OpenRouter picks the lowest effort for models with mandatory reasoning" do
+    models = %{
+      "data" => [
+        %{
+          "id" => "a",
+          "reasoning" => %{"mandatory" => true, "supported_efforts" => ["high", "low"]}
+        },
+        %{"id" => "b", "reasoning" => %{"mandatory" => true}},
+        %{"id" => "c", "reasoning" => %{"mandatory" => false}},
+        %{"id" => "d"}
+      ]
+    }
+
+    assert OpenRouter.mandatory_reasoning(models, "a") == %{effort: "low"}
+    assert OpenRouter.mandatory_reasoning(models, "b") == %{effort: "low"}
+    assert OpenRouter.mandatory_reasoning(models, "c") == nil
+    assert OpenRouter.mandatory_reasoning(models, "d") == nil
+    assert OpenRouter.mandatory_reasoning(models, "missing") == nil
+    assert OpenRouter.mandatory_reasoning(%{}, "a") == nil
   end
 
   test "Anthropic moves the system prompt and sums usage" do
@@ -59,8 +92,10 @@ defmodule LtProxy.ProviderTest do
                "usage" => %{"input_tokens" => 5, "output_tokens" => 2}
              })
 
-    assert {:error, :empty_reply} = Anthropic.parse_chat(%{"content" => []})
-    assert {:error, :empty_reply} = Anthropic.parse_chat(%{"error" => %{}})
+    assert {:error, {:empty_reply, "max_tokens"}} =
+             Anthropic.parse_chat(%{"content" => [], "stop_reason" => "max_tokens"})
+
+    assert {:error, {:empty_reply, nil}} = Anthropic.parse_chat(%{"error" => %{}})
   end
 
   describe "through Upstream" do

@@ -36,6 +36,58 @@ defmodule LtProxy.TranslatorTest do
     assert {:error, :invalid_output} = Translator.translate(@request)
   end
 
+  test "retries an empty reply cut off by max_tokens with double the budget" do
+    test = self()
+
+    Req.Test.stub(Upstream, fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      max_tokens = JSON.decode!(body)["max_tokens"]
+      send(test, {:max_tokens, max_tokens})
+
+      if max_tokens < 4096,
+        do: empty_reply(conn, "length"),
+        else: reply(conn, ~s({"source": "fr", "translation": "Hello world"}))
+    end)
+
+    log =
+      capture_log(fn ->
+        assert {:ok, %{text: "Hello world"}} = Translator.translate(@request)
+      end)
+
+    assert_received {:max_tokens, first}
+    assert_received {:max_tokens, second}
+    assert second == 2 * first
+    assert log =~ "finish_reason=length"
+  end
+
+  test "logs the finish reason when the reply stays empty" do
+    Req.Test.stub(Upstream, &empty_reply(&1, "length"))
+
+    log =
+      capture_log(fn ->
+        assert {:error, {:empty_reply, "length"}} = Translator.translate(@request)
+      end)
+
+    assert log =~ ~s(translation failed: {:empty_reply, "length"})
+    refute log =~ "Bonjour"
+  end
+
+  test "does not retry other empty replies" do
+    test = self()
+
+    Req.Test.stub(Upstream, fn conn ->
+      send(test, :called)
+      empty_reply(conn, "stop")
+    end)
+
+    capture_log(fn ->
+      assert {:error, {:empty_reply, "stop"}} = Translator.translate(@request)
+    end)
+
+    assert_received :called
+    refute_received :called
+  end
+
   test "logs usage without the note text" do
     stub_reply(~s({"source": "fr", "translation": "Hello world"}), %{"total_tokens" => 42})
 
