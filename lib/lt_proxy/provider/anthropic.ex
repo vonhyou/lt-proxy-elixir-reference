@@ -19,11 +19,19 @@ defmodule LtProxy.Provider.Anthropic do
   def headers(key), do: [x_api_key: key, anthropic_version: @version]
 
   @impl true
-  def chat_request(%{model: model, messages: messages, params: params}) do
+  def chat_request(%{model: model, messages: messages, params: params} = chat) do
     {system, messages} = Enum.split_with(messages, &(&1.role == "system"))
+    thinking = with %{} = reasoning <- chat[:reasoning], do: reasoning
+    thinking = thinking || %{type: "disabled"}
 
     body =
-      %{model: model, messages: messages, max_tokens: @default_max_tokens}
+      %{
+        model: model,
+        messages: messages,
+        max_tokens: @default_max_tokens,
+        thinking: thinking,
+        output_config: %{effort: "low"}
+      }
       |> Map.merge(params)
       |> put_system(Enum.map_join(system, "\n\n", & &1.content))
 
@@ -45,6 +53,9 @@ defmodule LtProxy.Provider.Anthropic do
     do: models |> Enum.flat_map(&List.wrap(&1["id"])) |> Enum.sort()
 
   def parse_models(_body), do: []
+
+  @impl true
+  def mandatory_reasoning(_models, _model), do: %{type: "adaptive"}
 
   defp put_system(body, ""), do: body
   defp put_system(body, system), do: Map.put(body, :system, system)

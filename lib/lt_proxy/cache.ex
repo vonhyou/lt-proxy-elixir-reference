@@ -22,7 +22,7 @@ defmodule LtProxy.Cache do
   def key(%Request{} = request) do
     term =
       {Config.fetch!(:model), Prompt.version(), request.source, request.target, request.format,
-       request.text}
+       request.mode, request.text}
 
     :crypto.hash(:sha256, :erlang.term_to_binary(term))
   end

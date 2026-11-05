@@ -4,7 +4,8 @@ defmodule LtProxy.Translate.RequestTest do
   alias LtProxy.Translate.Request
 
   test "builds a request with defaults" do
-    assert {:ok, %Request{text: "Bonjour", source: "auto", target: "en", format: :text}} =
+    assert {:ok,
+            %Request{text: "Bonjour", source: "auto", target: "en", format: :text, mode: :post}} =
              Request.from_params(%{"q" => "Bonjour", "target" => "en"})
   end
 
@@ -16,6 +17,14 @@ defmodule LtProxy.Translate.RequestTest do
                "target" => "FR",
                "format" => "html"
              })
+  end
+
+  test "parses mode" do
+    assert {:ok, %Request{mode: :document}} =
+             Request.from_params(%{"q" => "a", "target" => "en", "mode" => "document"})
+
+    assert {:ok, %Request{mode: :post}} =
+             Request.from_params(%{"q" => "a", "target" => "en", "mode" => ""})
   end
 
   test "rejects invalid params" do
@@ -32,7 +41,13 @@ defmodule LtProxy.Translate.RequestTest do
     assert {:error, :invalid_format} =
              Request.from_params(%{"q" => "a", "target" => "en", "format" => "md"})
 
+    assert {:error, :invalid_mode} =
+             Request.from_params(%{"q" => "a", "target" => "en", "mode" => "book"})
+
+    assert {:ok, _request} =
+             Request.from_params(%{"q" => String.duplicate("a", 32_000), "target" => "en"})
+
     assert {:error, :too_long} =
-             Request.from_params(%{"q" => String.duplicate("a", 20_001), "target" => "en"})
+             Request.from_params(%{"q" => String.duplicate("a", 32_001), "target" => "en"})
   end
 end

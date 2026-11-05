@@ -16,7 +16,7 @@ Then open the admin panel at `http://127.0.0.1:5001` (user `admin`), create an A
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/translate` | JSON or form body: `q`, `source` (default `auto`), `target`, `format` (`text` or `html`), `api_key` |
+| `POST` | `/translate` | JSON or form body: `q`, `source` (default `auto`), `target`, `format` (`text` or `html`), `mode` (`post`, the default, or `document` for longer Markdown/plain-text documents), `api_key` |
 | `GET` | `/languages` | Advertised languages; any ISO 639 code is accepted as a target |
 | `GET` | `/health` | Returns `ok` |
 
@@ -40,6 +40,8 @@ Errors return `{"error": "..."}` with status 400 (bad params), 403 (bad key), 41
 | Zero data retention routing | yes | n/a | n/a |
 
 OpenRouter and Anthropic are tested with the prompt evaluation corpus; other OpenAI-compatible endpoints depend on the model following the JSON reply format. Set a spending limit on the provider key.
+
+On Anthropic the proxy turns thinking off at low effort, since reasoning adds nothing to a translation; models that refuse thinking off are retried once with adaptive thinking.
 
 ## Configuration
 

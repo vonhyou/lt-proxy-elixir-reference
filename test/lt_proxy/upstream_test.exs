@@ -81,6 +81,31 @@ defmodule LtProxy.UpstreamTest do
       refute_received {:chat, "none"}
     end
 
+    test "Anthropic retries a 400 once with adaptive thinking" do
+      previous = Application.fetch_env!(:lt_proxy, :provider)
+      Application.put_env(:lt_proxy, :provider, LtProxy.Provider.Anthropic)
+      on_exit(fn -> Application.put_env(:lt_proxy, :provider, previous) end)
+      test = self()
+
+      Req.Test.stub(Upstream, fn conn ->
+        if conn.request_path =~ "/models" do
+          Req.Test.json(conn, %{"data" => []})
+        else
+          {:ok, body, conn} = Plug.Conn.read_body(conn)
+          thinking = JSON.decode!(body)["thinking"]["type"]
+          send(test, {:chat, thinking})
+
+          if thinking == "disabled",
+            do: Plug.Conn.send_resp(conn, 400, "{}"),
+            else: Req.Test.json(conn, %{"content" => [%{"type" => "text", "text" => "hi"}]})
+        end
+      end)
+
+      assert {:ok, "hi", nil} = Upstream.chat(@messages)
+      assert_received {:chat, "disabled"}
+      assert_received {:chat, "adaptive"}
+    end
+
     test "keeps the 400 and looks the model up only once when reasoning is optional" do
       test = self()
 

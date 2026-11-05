@@ -4,7 +4,7 @@ LibreTranslate-compatible proxy to an LLM on OpenRouter, for Sharkey/Misskey. El
 
 ## Layout
 
-- `lib/lt_proxy/translate/` pure modules: `Lang`, `Request`, `Prompt`, `Output`
+- `lib/lt_proxy/translate/` pure modules: `Lang`, `Request`, `Prompt`, `Output`; `Request.mode` is `:post` (Sharkey, default) or `:document` (longer Markdown or plain text, used by LtFrontend)
 - `lib/lt_proxy/provider.ex` behaviour + `provider/` (`OpenRouter`, `Anthropic`, `OpenAI`): request shape and reply parsing only; `upstream.ex` does HTTP with a hard time budget; `translator.ex` cache → slot → upstream → parse
 - `lib/lt_proxy/settings.ex` runtime settings (`settings.json` > env > config); `Config.fetch!/1` reads through it; `lib/lt_proxy/config/env.ex` parses `LTP_*` vars; `config/runtime.exs` resolves provider defaults and fails fast on missing vars
 - `lib/lt_proxy/api_keys.ex` GenServer: keys created in the panel live hashed in `api_keys.json`, `LTP_API_KEYS` adds read-only ones; `cache.ex` (Cachex, dedupes concurrent loads, never caches errors), `slots.ex` (atomics concurrency cap with a short wait), `rate_limit.ex` (ETS RPM per API key, always running)

@@ -3,29 +3,37 @@ defmodule LtProxy.Translate.Request do
 
   alias LtProxy.Translate.Lang
 
-  @max_text_bytes 20_000
+  @max_text_bytes 32_000
 
   def max_text_bytes, do: @max_text_bytes
 
   @enforce_keys [:text, :source, :target]
-  defstruct [:text, :source, :target, format: :text]
+  defstruct [:text, :source, :target, format: :text, mode: :post]
 
   @type t :: %__MODULE__{
           text: String.t(),
           source: String.t(),
           target: String.t(),
-          format: :text | :html
+          format: :text | :html,
+          mode: :post | :document
         }
 
-  @type error :: :missing_text | :missing_target | :invalid_lang | :invalid_format | :too_long
+  @type error ::
+          :missing_text
+          | :missing_target
+          | :invalid_lang
+          | :invalid_format
+          | :invalid_mode
+          | :too_long
 
   @spec from_params(map()) :: {:ok, t()} | {:error, error()}
   def from_params(params) when is_map(params) do
     with {:ok, text} <- text(params["q"]),
          {:ok, source} <- source(params["source"]),
          {:ok, target} <- target(params["target"]),
-         {:ok, format} <- format(params["format"]) do
-      {:ok, %__MODULE__{text: text, source: source, target: target, format: format}}
+         {:ok, format} <- format(params["format"]),
+         {:ok, mode} <- mode(params["mode"]) do
+      {:ok, %__MODULE__{text: text, source: source, target: target, format: format, mode: mode}}
     end
   end
 
@@ -48,4 +56,8 @@ defmodule LtProxy.Translate.Request do
   defp format(format) when format in [nil, "", "text"], do: {:ok, :text}
   defp format("html"), do: {:ok, :html}
   defp format(_format), do: {:error, :invalid_format}
+
+  defp mode(mode) when mode in [nil, "", "post"], do: {:ok, :post}
+  defp mode("document"), do: {:ok, :document}
+  defp mode(_mode), do: {:error, :invalid_mode}
 end

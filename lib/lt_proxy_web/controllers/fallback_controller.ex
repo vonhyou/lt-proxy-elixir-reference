@@ -6,6 +6,7 @@ defmodule LtProxyWeb.FallbackController do
     missing_target: {400, "Invalid request: missing target parameter"},
     invalid_lang: {400, "Invalid request: unsupported language code"},
     invalid_format: {400, "Invalid request: format must be text or html"},
+    invalid_mode: {400, "Invalid request: mode must be post or document"},
     too_long: {400, "Invalid request: text is too long"},
     forbidden: {403, "Invalid API key"},
     rate_limited: {429, "Slowdown: too many requests"},

@@ -77,8 +77,15 @@ defmodule LtProxy.ProviderTest do
              model: "m",
              system: "Translate",
              messages: [%{role: "user", content: "Bonjour"}],
-             max_tokens: 50
+             max_tokens: 50,
+             thinking: %{type: "disabled"},
+             output_config: %{effort: "low"}
            }
+
+    assert [url: _, json: %{thinking: %{type: "adaptive"}, output_config: %{effort: "low"}}] =
+             Anthropic.chat_request(Map.put(@chat, :reasoning, %{type: "adaptive"}))
+
+    assert Anthropic.mandatory_reasoning(%{"data" => []}, "m") == %{type: "adaptive"}
 
     assert %{max_tokens: 1024} =
              Keyword.fetch!(Anthropic.chat_request(%{@chat | params: %{}}), :json)
